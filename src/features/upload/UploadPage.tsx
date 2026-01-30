@@ -14,7 +14,7 @@ function UploadPage() {
   const initialPath = searchParams.get('path') ?? ''
   const [path, setPath] = useState(initialPath)
   const { storageZoneName, storageAccessKey } = useAppSettings()
-  const { items, addFiles, clear, uploadAll } = useUploadQueue()
+  const { items, addFiles, clear, uploadAll, retryFailed } = useUploadQueue()
   const queryClient = useQueryClient()
 
   const hasItems = items.length > 0
@@ -23,7 +23,19 @@ function UploadPage() {
     [storageZoneName, storageAccessKey, hasItems],
   )
 
+  const hasUploading = items.some((item) => item.status === 'uploading')
+  const hasIdle = items.some((item) => item.status === 'idle')
+  const hasError = items.some((item) => item.status === 'error')
+
   const handleUpload = async () => {
+    if (hasError && !hasIdle && !hasUploading) {
+      await retryFailed(
+        { storageZoneName, storageAccessKey },
+        normalizePath(path),
+      )
+      await queryClient.invalidateQueries({ queryKey: ['storage', 'list'] })
+      return
+    }
     await uploadAll(
       { storageZoneName, storageAccessKey },
       normalizePath(path),

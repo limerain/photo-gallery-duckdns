@@ -56,7 +56,7 @@ const buildFileUrl = (
 const getCacheKey = (config: StorageConfig) =>
   `${config.storageZoneName}::${config.storageAccessKey}`
 
-const resolveEndpoint = async (config: StorageConfig) => {
+export const resolveEndpoint = async (config: StorageConfig) => {
   const cacheKey = getCacheKey(config)
   const cached = endpointCache.get(cacheKey)
   if (cached) {
@@ -83,6 +83,56 @@ const resolveEndpoint = async (config: StorageConfig) => {
   }
 
   throw new Error(lastError || '스토리지 엔드포인트를 찾지 못했어.')
+}
+
+export const uploadFileResolved = async (
+  endpoint: string,
+  config: StorageConfig,
+  path: string,
+  file: File,
+  fileNameOverride?: string,
+  signal?: AbortSignal,
+) => {
+  const fileName = fileNameOverride ?? file.name
+  const response = await fetch(
+    buildFileUrl(endpoint, config.storageZoneName, path, fileName),
+    {
+      method: 'PUT',
+      headers: {
+        AccessKey: config.storageAccessKey,
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+      body: file,
+      signal,
+    },
+  )
+
+  if (!response.ok) {
+    throw new Error(`업로드 실패: ${response.status}`)
+  }
+}
+
+export const deleteFileResolved = async (
+  endpoint: string,
+  config: StorageConfig,
+  path: string,
+  fileName: string,
+  signal?: AbortSignal,
+) => {
+  const response = await fetch(
+    buildFileUrl(endpoint, config.storageZoneName, path, fileName),
+    {
+      method: 'DELETE',
+      headers: {
+        AccessKey: config.storageAccessKey,
+      },
+      signal,
+    },
+  )
+
+  if (!response.ok) {
+    throw new Error(`삭제 실패: ${response.status}`)
+  }
 }
 
 export const listDirectory = async (
@@ -112,21 +162,12 @@ export const uploadFile = async (
   signal?: AbortSignal,
 ) => {
   const endpoint = await resolveEndpoint(config)
-  const fileName = fileNameOverride ?? file.name
-  const response = await fetch(
-    buildFileUrl(endpoint, config.storageZoneName, path, fileName),
-    {
-      method: 'PUT',
-      headers: {
-        AccessKey: config.storageAccessKey,
-        'Content-Type': file.type || 'application/octet-stream',
-      },
-      body: file,
-      signal,
-    },
+  await uploadFileResolved(
+    endpoint,
+    config,
+    path,
+    file,
+    fileNameOverride,
+    signal,
   )
-
-  if (!response.ok) {
-    throw new Error(`업로드 실패: ${response.status}`)
-  }
 }

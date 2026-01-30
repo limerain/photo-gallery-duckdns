@@ -96,7 +96,8 @@ function BrowsePage() {
   const userScrolledRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const queryClient = useQueryClient()
-  const { items, addFiles, clear, uploadAll, cancel } = useUploadQueue()
+  const { items, addFiles, clear, uploadAll, retryFailed, cancel } =
+    useUploadQueue()
 
   const query = useQuery({
     queryKey: ['storage', 'list', path, storageZoneName],
@@ -165,6 +166,14 @@ function BrowsePage() {
   }
 
   const handleStartUpload = async () => {
+    const hasUploading = items.some((item) => item.status === 'uploading')
+    const hasIdle = items.some((item) => item.status === 'idle')
+    const hasError = items.some((item) => item.status === 'error')
+    if (hasError && !hasIdle && !hasUploading) {
+      await retryFailed({ storageZoneName, storageAccessKey }, path)
+      await queryClient.invalidateQueries({ queryKey: ['storage', 'list'] })
+      return
+    }
     await uploadAll({ storageZoneName, storageAccessKey }, path)
     await queryClient.invalidateQueries({ queryKey: ['storage', 'list'] })
   }
