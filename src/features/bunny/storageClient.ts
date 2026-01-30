@@ -109,6 +109,7 @@ export const uploadFile = async (
   path: string,
   file: File,
   fileNameOverride?: string,
+  signal?: AbortSignal,
 ) => {
   const endpoint = await resolveEndpoint(config)
   const fileName = fileNameOverride ?? file.name
@@ -121,6 +122,7 @@ export const uploadFile = async (
         'Content-Type': file.type || 'application/octet-stream',
       },
       body: file,
+      signal,
     },
   )
 

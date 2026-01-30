@@ -31,6 +31,8 @@ const buildId = (file: File) =>
 export const useUploadQueue = () => {
   const [items, setItems] = useState<UploadItem[]>([])
   const itemsRef = useRef(items)
+  const abortRef = useRef<AbortController | null>(null)
+  const cancelRequestedRef = useRef(false)
 
   useEffect(() => {
     itemsRef.current = items
@@ -47,8 +49,18 @@ export const useUploadQueue = () => {
 
   const clear = () => setItems([])
 
+  const cancel = () => {
+    cancelRequestedRef.current = true
+    abortRef.current?.abort()
+  }
+
   const uploadAll = async (config: UploadConfig, path: string) => {
+    cancelRequestedRef.current = false
+    const controller = new AbortController()
+    abortRef.current = controller
+
     for (const item of itemsRef.current) {
+      if (cancelRequestedRef.current) break
       if (item.status === 'success') continue
       setItems((prev) =>
         prev.map((entry) =>
@@ -59,7 +71,9 @@ export const useUploadQueue = () => {
       )
       try {
         // 1) 원본 업로드
-        await uploadFile(config, path, item.file)
+        await uploadFile(config, path, item.file, undefined, controller.signal)
+
+        if (cancelRequestedRef.current) break
 
         // 2) 이미지면 webp 썸네일 생성 + 업로드 (Optimizer 없이 사용량 절감용)
         const isImage = isImageFile(item.file.name, item.file.type)
@@ -69,8 +83,10 @@ export const useUploadQueue = () => {
             quality: 0.7,
           })
           const thumbDir = joinPath(path, '.thumb')
-          await uploadFile(config, thumbDir, thumbFile)
+          await uploadFile(config, thumbDir, thumbFile, undefined, controller.signal)
         }
+
+        if (cancelRequestedRef.current) break
 
         setItems((prev) =>
           prev.map((entry) =>
@@ -78,6 +94,16 @@ export const useUploadQueue = () => {
           ),
         )
       } catch (error) {
+        if (cancelRequestedRef.current || controller.signal.aborted) {
+          setItems((prev) =>
+            prev.map((entry) =>
+              entry.id === item.id
+                ? { ...entry, status: 'error', error: '업로드 취소' }
+                : entry,
+            ),
+          )
+          break
+        }
         setItems((prev) =>
           prev.map((entry) =>
             entry.id === item.id
@@ -87,6 +113,8 @@ export const useUploadQueue = () => {
         )
       }
     }
+
+    abortRef.current = null
   }
 
   return {
@@ -94,5 +122,6 @@ export const useUploadQueue = () => {
     addFiles,
     clear,
     uploadAll,
+    cancel,
   }
 }

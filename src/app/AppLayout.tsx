@@ -38,9 +38,6 @@ function AppLayout() {
             <NavLink to="/browse/" className={navLinkClass}>
               갤러리
             </NavLink>
-            <NavLink to="/upload" className={navLinkClass}>
-              업로드
-            </NavLink>
             <NavLink to="/settings" className={navLinkClass}>
               설정
             </NavLink>

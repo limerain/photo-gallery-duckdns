@@ -3,7 +3,6 @@ import AppLayout from './app/AppLayout'
 import BrowsePage from './features/gallery/BrowsePage'
 import SettingsPage from './features/settings/SettingsPage'
 import SetupPage from './features/settings/SetupPage'
-import UploadPage from './features/upload/UploadPage'
 import ViewPage from './features/viewer/ViewPage'
 
 function App() {
@@ -14,7 +13,6 @@ function App() {
         <Route index element={<Navigate to="/browse/" replace />} />
         <Route path="browse/*" element={<BrowsePage />} />
         <Route path="view/*" element={<ViewPage />} />
-        <Route path="upload" element={<UploadPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/browse/" replace />} />

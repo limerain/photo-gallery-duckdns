@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { buildCdnUrl } from '../bunny/cdnUrl'
@@ -7,6 +8,8 @@ import { useAppSettings } from '../settings/settingsStore'
 import { isImageFile, isVideoFile } from './fileTypes'
 import { Button } from '../../ui/Button'
 import { Card } from '../../ui/Card'
+import { useUploadQueue } from '../upload/useUploadQueue'
+import UploadPopup from '../upload/UploadPopup'
 
 const buildEntryPath = (entry: StorageEntry, currentPath: string) => {
   const name = entry.ObjectName ?? ''
@@ -88,9 +91,12 @@ function BrowsePage() {
   const path = params['*'] ?? ''
   const { cdnBaseUrl, storageZoneName, storageAccessKey } = useAppSettings()
   const [visibleCount, setVisibleCount] = useState(40)
+  const [isUploadOpen, setIsUploadOpen] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const userScrolledRef = useRef(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const queryClient = useQueryClient()
+  const { items, addFiles, clear, uploadAll, cancel } = useUploadQueue()
 
   const query = useQuery({
     queryKey: ['storage', 'list', path, storageZoneName],
@@ -146,6 +152,38 @@ function BrowsePage() {
     }
   }, [])
 
+  const handleUploadPick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFilesSelected = (event: ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files?.length) {
+      addFiles(event.target.files)
+      setIsUploadOpen(true)
+      event.target.value = ''
+    }
+  }
+
+  const handleStartUpload = async () => {
+    await uploadAll({ storageZoneName, storageAccessKey }, path)
+    await queryClient.invalidateQueries({ queryKey: ['storage', 'list'] })
+  }
+
+  const handleCloseUpload = () => {
+    const isUploading = items.some((item) => item.status === 'uploading')
+    if (isUploading) {
+      cancel()
+    }
+    clear()
+    setIsUploadOpen(false)
+  }
+
+  const hasItems = items.length > 0
+  const hasUploading = items.some((item) => item.status === 'uploading')
+  const canStart = items.some((item) => item.status !== 'success')
+  const uploadDisabled =
+    !storageZoneName || !storageAccessKey || !hasItems || hasUploading || !canStart
+
   useEffect(() => {
     const sentinel = sentinelRef.current
     if (!sentinel) return
@@ -180,12 +218,14 @@ function BrowsePage() {
             <Button type="button" size="sm" onClick={handleCreateFolder}>
               폴더 만들기
             </Button>
-            <Link
-              to={`/upload?path=${encodeURIComponent(path)}`}
-              className="inline-flex h-9 items-center rounded-lg bg-white px-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-200"
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              onClick={handleUploadPick}
             >
               이 경로에 업로드
-            </Link>
+            </Button>
             {path ? (
               <Link
                 to={`/browse/${parentPath}`}
@@ -282,6 +322,26 @@ function BrowsePage() {
       ) : null}
 
       <div ref={sentinelRef} />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={handleFilesSelected}
+      />
+
+      {isUploadOpen && hasItems ? (
+        <div className="fixed bottom-6 right-6 z-50">
+          <UploadPopup
+            items={items}
+            isStartDisabled={uploadDisabled}
+            onStart={handleStartUpload}
+            onCancelOrClose={handleCloseUpload}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
