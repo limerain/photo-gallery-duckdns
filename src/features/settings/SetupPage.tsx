@@ -1,6 +1,9 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isSettingsReady, useAppSettings } from './settingsStore'
+import { Button } from '../../ui/Button'
+import { Card } from '../../ui/Card'
+import { Input } from '../../ui/Input'
 
 function SetupPage() {
   const navigate = useNavigate()
@@ -40,63 +43,67 @@ function SetupPage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">
-      <h1 className="text-xl font-semibold text-white">초기 설정</h1>
-      <p className="mt-2 text-sm text-zinc-400">
-        CDN URL, Storage Zone, AccessKey를 입력해줘.
-      </p>
-      <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-        <label className="block text-sm font-medium text-zinc-200">
-          CDN 메인 URL
-          <input
-            type="url"
-            inputMode="url"
-            placeholder="https://xxx.b-cdn.net"
-            className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
-            value={form.cdnBaseUrl}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, cdnBaseUrl: event.target.value }))
-            }
-          />
-        </label>
-        <label className="block text-sm font-medium text-zinc-200">
-          Storage Zone Name
-          <input
-            type="text"
-            placeholder="my-zone"
-            className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
-            value={form.storageZoneName}
-            onChange={(event) =>
-              setForm((prev) => ({
-                ...prev,
-                storageZoneName: event.target.value,
-              }))
-            }
-          />
-        </label>
-        <label className="block text-sm font-medium text-zinc-200">
-          Storage AccessKey
-          <input
-            type="password"
-            placeholder="********"
-            className="mt-2 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
-            value={form.storageAccessKey}
-            onChange={(event) =>
-              setForm((prev) => ({
-                ...prev,
-                storageAccessKey: event.target.value,
-              }))
-            }
-          />
-        </label>
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
-        <button
-          type="submit"
-          className="inline-flex w-full items-center justify-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-200"
-        >
-          저장하고 시작하기
-        </button>
-      </form>
+    <div className="mx-auto grid max-w-xl gap-4">
+      <div className="px-1">
+        <h1 className="text-2xl font-semibold text-white">초기 설정</h1>
+        <p className="mt-2 text-sm text-zinc-400">
+          인증 없이 쓰는 대신, 이 값들은 세션스토리지에만 저장돼.
+        </p>
+      </div>
+      <Card className="p-6">
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <label className="block">
+            <div className="text-sm font-semibold text-zinc-200">
+              CDN 메인 URL
+            </div>
+            <Input
+              type="url"
+              inputMode="url"
+              placeholder="https://xxx.b-cdn.net"
+              value={form.cdnBaseUrl}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, cdnBaseUrl: event.target.value }))
+              }
+            />
+          </label>
+          <label className="block">
+            <div className="text-sm font-semibold text-zinc-200">
+              Storage Zone Name
+            </div>
+            <Input
+              type="text"
+              placeholder="my-zone"
+              value={form.storageZoneName}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  storageZoneName: event.target.value,
+                }))
+              }
+            />
+          </label>
+          <label className="block">
+            <div className="text-sm font-semibold text-zinc-200">
+              Storage AccessKey
+            </div>
+            <Input
+              type="password"
+              placeholder="********"
+              value={form.storageAccessKey}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  storageAccessKey: event.target.value,
+                }))
+              }
+            />
+          </label>
+          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          <Button type="submit" variant="primary" className="w-full">
+            저장하고 시작하기
+          </Button>
+        </form>
+      </Card>
     </div>
   )
 }

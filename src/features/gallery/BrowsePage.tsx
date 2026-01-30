@@ -5,6 +5,8 @@ import { buildCdnUrl } from '../bunny/cdnUrl'
 import { listDirectory, StorageEntry, uploadFile } from '../bunny/storageClient'
 import { useAppSettings } from '../settings/settingsStore'
 import { isImageFile, isVideoFile } from './fileTypes'
+import { Button } from '../../ui/Button'
+import { Card } from '../../ui/Card'
 
 const buildEntryPath = (entry: StorageEntry, currentPath: string) => {
   const name = entry.ObjectName ?? ''
@@ -51,6 +53,34 @@ const buildThumbPath = (entryPath: string) => {
   const dir = getDirName(entryPath)
   const thumbFileName = `${base}.webp`
   return dir ? `${dir}/.thumb/${thumbFileName}` : `.thumb/${thumbFileName}`
+}
+
+function Thumb({
+  src,
+  alt,
+  fallback,
+}: {
+  src: string
+  alt: string
+  fallback: string
+}) {
+  const [ok, setOk] = useState(true)
+  if (!ok) {
+    return (
+      <div className="grid h-full w-full place-items-center text-3xl text-zinc-400">
+        {fallback}
+      </div>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-full w-full object-cover"
+      loading="lazy"
+      onError={() => setOk(false)}
+    />
+  )
 }
 
 function BrowsePage() {
@@ -140,52 +170,46 @@ function BrowsePage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-semibold text-white">갤러리</h1>
-            <p className="text-sm text-zinc-400">/{path || ''}</p>
+            <p className="mt-1 text-sm text-zinc-400">/{path || ''}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleCreateFolder}
-              className="rounded-md border border-zinc-700 px-3 py-1 text-sm text-zinc-200 hover:border-zinc-500"
-            >
+            <Button type="button" size="sm" onClick={handleCreateFolder}>
               폴더 만들기
-            </button>
+            </Button>
             <Link
               to={`/upload?path=${encodeURIComponent(path)}`}
-              className="rounded-md bg-white px-3 py-1 text-sm font-semibold text-zinc-900"
+              className="inline-flex h-9 items-center rounded-lg bg-white px-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-200"
             >
               이 경로에 업로드
             </Link>
             {path ? (
               <Link
                 to={`/browse/${parentPath}`}
-                className="rounded-md border border-zinc-700 px-3 py-1 text-sm text-zinc-200 hover:border-zinc-500"
+                className="inline-flex h-9 items-center rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-semibold text-zinc-100 hover:bg-white/10"
               >
                 상위로
               </Link>
             ) : null}
           </div>
         </div>
-      </div>
+      </Card>
 
       {query.isLoading ? (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6 text-sm text-zinc-400">
-          불러오는 중...
-        </div>
+        <Card className="p-6 text-sm text-zinc-400">불러오는 중...</Card>
       ) : null}
 
       {query.isError ? (
-        <div className="rounded-xl border border-red-900/50 bg-red-950/30 p-6 text-sm text-red-200">
+        <Card className="border-red-500/20 bg-red-500/5 p-6 text-sm text-red-200">
           목록을 불러오지 못했어.
-        </div>
+        </Card>
       ) : null}
 
       {entries.length ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(190px,1fr))]">
           {visibleEntries.map((entry) => {
             const name = entry.ObjectName ?? entry.Path ?? 'unknown'
             const entryPath = buildEntryPath(entry, path)
@@ -199,12 +223,15 @@ function BrowsePage() {
                 <Link
                   key={entryPath}
                   to={`/browse/${entryPath}`}
-                  className="group rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 hover:border-zinc-600"
+                  className="group rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/7"
                 >
-                  <div className="text-2xl">📁</div>
-                  <div className="mt-3 truncate text-sm font-medium text-zinc-200">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/5 text-xl">
+                    📁
+                  </div>
+                  <div className="mt-3 truncate text-sm font-semibold text-zinc-100">
                     {name}
                   </div>
+                  <div className="mt-1 text-xs text-zinc-500">폴더</div>
                 </Link>
               )
             }
@@ -215,29 +242,25 @@ function BrowsePage() {
               <Link
                 key={entryPath}
                 to={`/view/${entryPath}`}
-                className="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
+                className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:bg-white/7"
               >
-                <div className="relative aspect-square w-full bg-zinc-950">
+                <div className="aspect-square w-full bg-black/40">
                   {isImage ? (
-                    <img
+                    <Thumb
                       src={buildCdnUrl(cdnBaseUrl, buildThumbPath(entryPath))}
                       alt={name}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      onError={(event) => {
-                        // thumb가 없으면 원본을 받지 않고(=대용량 다운로드 방지) 아이콘만 노출
-                        event.currentTarget.style.display = 'none'
-                      }}
+                      fallback="🖼️"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-3xl" />
+                    <div className="grid h-full w-full place-items-center text-3xl text-zinc-400">
+                      {isVideo ? '🎬' : '📄'}
+                    </div>
                   )}
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-3xl">
-                    {isImage ? '🖼️' : isVideo ? '🎬' : '📄'}
-                  </div>
                 </div>
-                <div className="px-3 py-2 text-sm text-zinc-200">
-                  <div className="truncate">{name}</div>
+                <div className="px-3 py-3">
+                  <div className="truncate text-sm font-semibold text-zinc-100">
+                    {name}
+                  </div>
                 </div>
               </Link>
             )
@@ -247,15 +270,14 @@ function BrowsePage() {
 
       {entries.length > visibleCount ? (
         <div className="flex items-center justify-center py-6">
-          <button
+          <Button
             type="button"
             onClick={() =>
               setVisibleCount((prev) => Math.min(prev + 40, entries.length))
             }
-            className="rounded-md border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500"
           >
             더 불러오기
-          </button>
+          </Button>
         </div>
       ) : null}
 
