@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { buildImageTransformUrl } from '../bunny/cdnUrl'
-import { listDirectory, StorageEntry } from '../bunny/storageClient'
+import { buildCdnUrl } from '../bunny/cdnUrl'
+import { listDirectory, StorageEntry, uploadFile } from '../bunny/storageClient'
 import { useAppSettings } from '../settings/settingsStore'
 import { isImageFile, isVideoFile } from './fileTypes'
 
@@ -22,6 +22,37 @@ const getParentPath = (path: string) => {
   return parts.join('/')
 }
 
+const normalizePath = (path: string) => path.replace(/^\/+|\/+$/g, '').trim()
+
+const joinPath = (base: string, next: string) => {
+  const a = normalizePath(base)
+  const b = normalizePath(next)
+  if (!a) return b
+  if (!b) return a
+  return `${a}/${b}`
+}
+
+const getBaseName = (fileName: string) => {
+  const lastDot = fileName.lastIndexOf('.')
+  return lastDot > 0 ? fileName.slice(0, lastDot) : fileName
+}
+
+const getDirName = (fullPath: string) => {
+  const trimmed = fullPath.replace(/^\/+|\/+$/g, '')
+  if (!trimmed) return ''
+  const parts = trimmed.split('/')
+  parts.pop()
+  return parts.join('/')
+}
+
+const buildThumbPath = (entryPath: string) => {
+  const fileName = entryPath.split('/').pop() ?? ''
+  const base = getBaseName(fileName)
+  const dir = getDirName(entryPath)
+  const thumbFileName = `${base}.webp`
+  return dir ? `${dir}/.thumb/${thumbFileName}` : `.thumb/${thumbFileName}`
+}
+
 function BrowsePage() {
   const params = useParams()
   const path = params['*'] ?? ''
@@ -29,6 +60,7 @@ function BrowsePage() {
   const [visibleCount, setVisibleCount] = useState(40)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const userScrolledRef = useRef(false)
+  const queryClient = useQueryClient()
 
   const query = useQuery({
     queryKey: ['storage', 'list', path, storageZoneName],
@@ -49,6 +81,23 @@ function BrowsePage() {
     () => entries.slice(0, visibleCount),
     [entries, visibleCount],
   )
+
+  const handleCreateFolder = async () => {
+    const raw = window.prompt('폴더 이름')
+    if (!raw) return
+    const folderName = normalizePath(raw)
+    if (!folderName) return
+
+    const keepFile = new File([new Uint8Array()], '.keep', {
+      type: 'text/plain',
+    })
+    await uploadFile(
+      { storageZoneName, storageAccessKey },
+      joinPath(path, folderName),
+      keepFile,
+    )
+    await queryClient.invalidateQueries({ queryKey: ['storage', 'list'] })
+  }
 
   useEffect(() => {
     setVisibleCount(40)
@@ -98,6 +147,13 @@ function BrowsePage() {
             <p className="text-sm text-zinc-400">/{path || ''}</p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCreateFolder}
+              className="rounded-md border border-zinc-700 px-3 py-1 text-sm text-zinc-200 hover:border-zinc-500"
+            >
+              폴더 만들기
+            </button>
             <Link
               to={`/upload?path=${encodeURIComponent(path)}`}
               className="rounded-md bg-white px-3 py-1 text-sm font-semibold text-zinc-900"
@@ -138,6 +194,7 @@ function BrowsePage() {
             const isVideo = !isDir && isVideoFile(name, entry.ContentType)
 
             if (isDir) {
+              if (name === '.thumb') return null
               return (
                 <Link
                   key={entryPath}
@@ -152,31 +209,32 @@ function BrowsePage() {
               )
             }
 
+            if (name === '.keep') return null
+
             return (
               <Link
                 key={entryPath}
                 to={`/view/${entryPath}`}
                 className="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 hover:border-zinc-600"
               >
-                <div className="aspect-square w-full bg-zinc-950">
+                <div className="relative aspect-square w-full bg-zinc-950">
                   {isImage ? (
                     <img
-                      src={buildImageTransformUrl(cdnBaseUrl, entryPath, {
-                        width: 256,
-                        height: 256,
-                        aspectRatio: '1:1',
-                        quality: 70,
-                        autoOptimize: 'high',
-                      })}
+                      src={buildCdnUrl(cdnBaseUrl, buildThumbPath(entryPath))}
                       alt={name}
                       className="h-full w-full object-cover"
                       loading="lazy"
+                      onError={(event) => {
+                        // thumb가 없으면 원본을 받지 않고(=대용량 다운로드 방지) 아이콘만 노출
+                        event.currentTarget.style.display = 'none'
+                      }}
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-3xl">
-                      {isVideo ? '🎬' : '📄'}
-                    </div>
+                    <div className="flex h-full w-full items-center justify-center text-3xl" />
                   )}
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-3xl">
+                    {isImage ? '🖼️' : isVideo ? '🎬' : '📄'}
+                  </div>
                 </div>
                 <div className="px-3 py-2 text-sm text-zinc-200">
                   <div className="truncate">{name}</div>

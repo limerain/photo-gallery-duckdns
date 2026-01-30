@@ -108,10 +108,12 @@ export const uploadFile = async (
   config: StorageConfig,
   path: string,
   file: File,
+  fileNameOverride?: string,
 ) => {
   const endpoint = await resolveEndpoint(config)
+  const fileName = fileNameOverride ?? file.name
   const response = await fetch(
-    buildFileUrl(endpoint, config.storageZoneName, path, file.name),
+    buildFileUrl(endpoint, config.storageZoneName, path, fileName),
     {
       method: 'PUT',
       headers: {

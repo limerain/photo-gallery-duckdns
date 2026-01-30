@@ -1,11 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { uploadFile } from '../bunny/storageClient'
+import { isImageFile } from '../gallery/fileTypes'
+import { createWebpThumbnailFile } from './createWebpThumbnail'
 
 export type UploadItem = {
   id: string
   file: File
   status: 'idle' | 'uploading' | 'success' | 'error'
   error?: string
+}
+
+const normalizePath = (path: string) => path.replace(/^\/+|\/+$/g, '').trim()
+
+const joinPath = (base: string, next: string) => {
+  const a = normalizePath(base)
+  const b = normalizePath(next)
+  if (!a) return b
+  if (!b) return a
+  return `${a}/${b}`
 }
 
 type UploadConfig = {
@@ -46,7 +58,20 @@ export const useUploadQueue = () => {
         ),
       )
       try {
+        // 1) 원본 업로드
         await uploadFile(config, path, item.file)
+
+        // 2) 이미지면 webp 썸네일 생성 + 업로드 (Optimizer 없이 사용량 절감용)
+        const isImage = isImageFile(item.file.name, item.file.type)
+        if (isImage) {
+          const thumbFile = await createWebpThumbnailFile(item.file, {
+            maxSize: 256,
+            quality: 0.7,
+          })
+          const thumbDir = joinPath(path, '.thumb')
+          await uploadFile(config, thumbDir, thumbFile)
+        }
+
         setItems((prev) =>
           prev.map((entry) =>
             entry.id === item.id ? { ...entry, status: 'success' } : entry,
