@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { buildImageTransformUrl } from '../bunny/cdnUrl'
@@ -25,6 +26,9 @@ function BrowsePage() {
   const params = useParams()
   const path = params['*'] ?? ''
   const { cdnBaseUrl, storageZoneName, storageAccessKey } = useAppSettings()
+  const [visibleCount, setVisibleCount] = useState(40)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const userScrolledRef = useRef(false)
 
   const query = useQuery({
     queryKey: ['storage', 'list', path, storageZoneName],
@@ -40,6 +44,50 @@ function BrowsePage() {
   })
 
   const parentPath = getParentPath(path)
+  const entries = query.data ?? []
+  const visibleEntries = useMemo(
+    () => entries.slice(0, visibleCount),
+    [entries, visibleCount],
+  )
+
+  useEffect(() => {
+    setVisibleCount(40)
+    userScrolledRef.current = false
+  }, [path])
+
+  useEffect(() => {
+    const markScrolled = () => {
+      userScrolledRef.current = true
+    }
+    window.addEventListener('scroll', markScrolled, { passive: true })
+    window.addEventListener('touchmove', markScrolled, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', markScrolled)
+      window.removeEventListener('touchmove', markScrolled)
+    }
+  }, [])
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (items) => {
+        const entry = items[0]
+        if (!entry?.isIntersecting) return
+
+        // sentinel이 초기 렌더 직후 화면에 들어오는 케이스(=스크롤 없이 연속 로드) 방지
+        if (!userScrolledRef.current) return
+        userScrolledRef.current = false
+
+        setVisibleCount((prev) =>
+          Math.min(prev + 40, entries.length || prev + 40),
+        )
+      },
+      { rootMargin: '200px 0px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [entries.length])
 
   return (
     <div className="space-y-4">
@@ -80,9 +128,9 @@ function BrowsePage() {
         </div>
       ) : null}
 
-      {query.data ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {query.data.map((entry) => {
+      {entries.length ? (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
+          {visibleEntries.map((entry) => {
             const name = entry.ObjectName ?? entry.Path ?? 'unknown'
             const entryPath = buildEntryPath(entry, path)
             const isDir = entry.IsDirectory
@@ -114,8 +162,8 @@ function BrowsePage() {
                   {isImage ? (
                     <img
                       src={buildImageTransformUrl(cdnBaseUrl, entryPath, {
-                        width: 320,
-                        height: 320,
+                        width: 256,
+                        height: 256,
                         aspectRatio: '1:1',
                         quality: 70,
                         autoOptimize: 'high',
@@ -138,6 +186,22 @@ function BrowsePage() {
           })}
         </div>
       ) : null}
+
+      {entries.length > visibleCount ? (
+        <div className="flex items-center justify-center py-6">
+          <button
+            type="button"
+            onClick={() =>
+              setVisibleCount((prev) => Math.min(prev + 40, entries.length))
+            }
+            className="rounded-md border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-500"
+          >
+            더 불러오기
+          </button>
+        </div>
+      ) : null}
+
+      <div ref={sentinelRef} />
     </div>
   )
 }
