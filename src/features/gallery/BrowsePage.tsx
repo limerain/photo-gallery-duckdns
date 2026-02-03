@@ -138,7 +138,10 @@ function BrowsePage() {
     restoreScroll?: boolean
     browseRestore?: { scrollY: number; visibleCount: number }
   } | null
-  const parentStack = locationState?.parentStack ?? []
+  const parentStack = useMemo(
+    () => locationState?.parentStack ?? [],
+    [locationState?.parentStack],
+  )
 
   const entries = query.data ?? []
   const visibleEntries = useMemo(
