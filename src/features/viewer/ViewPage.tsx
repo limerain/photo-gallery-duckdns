@@ -6,18 +6,15 @@ import { isImageFile, isVideoFile } from '../gallery/fileTypes'
 import { Button } from '../../ui/Button'
 import { Card } from '../../ui/Card'
 
-interface FromBrowseState {
-  browsePath: string
-  scrollY: number
-  visibleCount: number
-}
+type ScrollState = { path: string; scrollY: number; visibleCount: number }
 
 function ViewPage() {
   const params = useParams()
   const path = params['*'] ?? ''
   const location = useLocation()
-  const fromBrowse = (location.state as { fromBrowse?: FromBrowseState } | null)
-    ?.fromBrowse
+  const parentStack =
+    (location.state as { parentStack?: ScrollState[] } | null)?.parentStack ?? []
+  const top = parentStack[parentStack.length - 1]
   const { cdnBaseUrl, alwaysOriginal } = useAppSettings()
   const [forceOriginal, setForceOriginal] = useState(false)
 
@@ -49,15 +46,16 @@ function ViewPage() {
           <p className="mt-1 text-sm text-zinc-400">{name}</p>
         </div>
         <Link
-          to={`/browse/${path.split('/').slice(0, -1).join('/')}`}
+          to={`/browse/${top?.path ?? path.split('/').slice(0, -1).join('/')}`}
           state={
-            fromBrowse
+            top
               ? {
-                  restoreFromView: true,
+                  restoreScroll: true,
                   browseRestore: {
-                    scrollY: fromBrowse.scrollY,
-                    visibleCount: fromBrowse.visibleCount,
+                    scrollY: top.scrollY,
+                    visibleCount: top.visibleCount,
                   },
+                  parentStack: parentStack.slice(0, -1),
                 }
               : undefined
           }

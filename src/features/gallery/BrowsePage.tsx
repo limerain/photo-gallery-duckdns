@@ -128,8 +128,7 @@ function BrowsePage() {
   type ScrollState = { path: string; scrollY: number; visibleCount: number }
   const locationState = location.state as {
     parentStack?: ScrollState[]
-    restoreFromView?: boolean
-    restoreFromChild?: boolean
+    restoreScroll?: boolean
     browseRestore?: { scrollY: number; visibleCount: number }
   } | null
   const parentStack = locationState?.parentStack ?? []
@@ -160,8 +159,7 @@ function BrowsePage() {
   // view 또는 하위 폴더에서 복귀 시 스크롤/visibleCount 복원
   useEffect(() => {
     const shouldRestore =
-      (locationState?.restoreFromView || locationState?.restoreFromChild) &&
-      locationState.browseRestore
+      locationState?.restoreScroll && locationState.browseRestore
     if (!shouldRestore) {
       // 복원 상태가 없으면 기존 동작: visibleCount 리셋
       setVisibleCount(40)
@@ -285,7 +283,7 @@ function BrowsePage() {
                   if (!top || top.path !== parentPath) return undefined
                   const remainingStack = parentStack.slice(0, -1)
                   return {
-                    restoreFromChild: true,
+                    restoreScroll: true,
                     browseRestore: {
                       scrollY: top.scrollY,
                       visibleCount: top.visibleCount,
@@ -359,11 +357,14 @@ function BrowsePage() {
                 onClick={() => {
                   navigate(`/view/${entryPath}`, {
                     state: {
-                      fromBrowse: {
-                        browsePath: path,
-                        scrollY: window.scrollY,
-                        visibleCount: visibleCountRef.current,
-                      },
+                      parentStack: [
+                        ...parentStack,
+                        {
+                          path,
+                          scrollY: window.scrollY,
+                          visibleCount: visibleCountRef.current,
+                        },
+                      ],
                     },
                   })
                 }}
