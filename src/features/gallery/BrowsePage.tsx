@@ -257,7 +257,7 @@ function BrowsePage() {
 
   return (
     <div className="space-y-4">
-      <Card className="p-4">
+      <Card className="sticky top-0 z-20 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-semibold text-white">갤러리</h1>
