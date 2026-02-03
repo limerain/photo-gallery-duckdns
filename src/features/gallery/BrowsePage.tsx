@@ -321,7 +321,7 @@ function BrowsePage() {
                 이 경로에 업로드
               </Button>
               {isUploadMenuOpen && (
-                <div className="absolute right-0 top-full z-30 mt-1 w-36 rounded-lg border border-border-default bg-surface-base py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-30 mt-1 w-36 rounded-lg border border-border-default bg-[var(--bg-base)] py-1 shadow-lg">
                   <button
                     type="button"
                     className="w-full px-3 py-2 text-left text-sm text-content-primary hover:bg-surface-elevated-hover"
