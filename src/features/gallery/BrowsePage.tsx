@@ -103,6 +103,13 @@ function BrowsePage() {
   const { items, addFiles, clear, uploadAll, retryFailed, cancel } =
     useUploadQueue()
 
+  // path 변경 시 업로드 큐 초기화
+  useEffect(() => {
+    cancel()
+    clear()
+    setIsUploadOpen(false)
+  }, [path, cancel, clear])
+
   const query = useQuery({
     queryKey: ['storage', 'list', path, storageZoneName],
     queryFn: () =>

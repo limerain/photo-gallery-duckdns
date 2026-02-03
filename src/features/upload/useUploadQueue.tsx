@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   deleteFileResolved,
   resolveEndpoint,
@@ -179,16 +179,16 @@ export const useUploadQueue = () => {
     setItems((prev) => [...prev, ...list])
   }
 
-  const clear = () => {
+  const clear = useCallback(() => {
     uploadStateRef.current.clear()
     retryCountRef.current.clear()
     setItems([])
-  }
+  }, [])
 
-  const cancel = () => {
+  const cancel = useCallback(() => {
     cancelRequestedRef.current = true
     abortRef.current?.abort()
-  }
+  }, [])
 
   const runUploads = async (
     config: UploadConfig,
