@@ -61,12 +61,12 @@ function UploadPopup({
         ? 'border-danger-border bg-danger-bg'
         : 'border-border-default bg-surface-base/90'
 
-  const ringClass =
+  const ringColor =
     tone === 'success'
-      ? 'stroke-success-text'
+      ? 'var(--success-text)'
       : tone === 'error'
-        ? 'stroke-danger-text'
-        : 'stroke-content-secondary'
+        ? 'var(--danger-text)'
+        : 'var(--text-secondary)'
 
   return (
     <div
@@ -80,7 +80,7 @@ function UploadPopup({
               cy="20"
               r={radius}
               strokeWidth={strokeWidth}
-              className="stroke-border-default"
+              style={{ stroke: 'var(--border-default)' }}
               fill="none"
             />
             <circle
@@ -88,7 +88,7 @@ function UploadPopup({
               cy="20"
               r={radius}
               strokeWidth={strokeWidth}
-              className={ringClass}
+              style={{ stroke: ringColor }}
               fill="none"
               strokeDasharray={`${dash} ${circumference - dash}`}
               strokeLinecap="round"

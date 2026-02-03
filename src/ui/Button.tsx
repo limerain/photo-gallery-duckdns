@@ -13,7 +13,7 @@ const base =
   'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition outline-none focus-visible:ring-2 focus-visible:ring-border-hover disabled:cursor-not-allowed disabled:opacity-50'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-accent-text hover:bg-accent-hover',
+  primary: 'border border-accent bg-accent text-accent-text hover:bg-accent-hover hover:border-accent-hover',
   secondary:
     'border border-border-default bg-surface-elevated text-content-primary hover:bg-surface-elevated-hover',
   ghost: 'text-content-secondary hover:bg-surface-elevated',
