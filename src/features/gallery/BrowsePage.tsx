@@ -94,13 +94,16 @@ function BrowsePage() {
   const { cdnBaseUrl, storageZoneName, storageAccessKey } = useAppSettings()
   const [visibleCount, setVisibleCount] = useState(40)
   const [isUploadOpen, setIsUploadOpen] = useState(false)
+  const [isUploadMenuOpen, setIsUploadMenuOpen] = useState(false)
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const userScrolledRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const dirInputRef = useRef<HTMLInputElement | null>(null)
   const folderInputRef = useRef<HTMLInputElement | null>(null)
+  const uploadMenuRef = useRef<HTMLDivElement | null>(null)
   const visibleCountRef = useRef(visibleCount)
   visibleCountRef.current = visibleCount
   const queryClient = useQueryClient()
@@ -212,8 +215,30 @@ function BrowsePage() {
     }
   }, [])
 
+  // 업로드 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!isUploadMenuOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (uploadMenuRef.current && !uploadMenuRef.current.contains(e.target as Node)) {
+        setIsUploadMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isUploadMenuOpen])
+
+  const handleUploadMenuToggle = () => {
+    setIsUploadMenuOpen((prev) => !prev)
+  }
+
   const handleUploadPick = () => {
+    setIsUploadMenuOpen(false)
     fileInputRef.current?.click()
+  }
+
+  const handleFolderPick = () => {
+    setIsUploadMenuOpen(false)
+    dirInputRef.current?.click()
   }
 
   const handleFilesSelected = (event: ChangeEvent<HTMLInputElement>) => {
@@ -286,14 +311,34 @@ function BrowsePage() {
             <Button type="button" size="sm" onClick={handleOpenCreateFolder}>
               폴더 만들기
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="primary"
-              onClick={handleUploadPick}
-            >
-              이 경로에 업로드
-            </Button>
+            <div ref={uploadMenuRef} className="relative">
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                onClick={handleUploadMenuToggle}
+              >
+                이 경로에 업로드
+              </Button>
+              {isUploadMenuOpen && (
+                <div className="absolute right-0 top-full z-30 mt-1 w-36 rounded-lg border border-border-default bg-surface-base py-1 shadow-lg">
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-left text-sm text-content-primary hover:bg-surface-elevated-hover"
+                    onClick={handleUploadPick}
+                  >
+                    파일 선택
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-left text-sm text-content-primary hover:bg-surface-elevated-hover"
+                    onClick={handleFolderPick}
+                  >
+                    폴더 선택
+                  </button>
+                </div>
+              )}
+            </div>
             {path ? (
               <Link
                 to={`/browse/${parentPath}`}
@@ -433,6 +478,15 @@ function BrowsePage() {
         type="file"
         multiple
         accept="image/*,video/*"
+        className="hidden"
+        onChange={handleFilesSelected}
+      />
+      <input
+        ref={dirInputRef}
+        type="file"
+        multiple
+        // @ts-expect-error webkitdirectory is non-standard but widely supported
+        webkitdirectory=""
         className="hidden"
         onChange={handleFilesSelected}
       />

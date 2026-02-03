@@ -10,6 +10,7 @@ import { createWebpThumbnailFile } from './createWebpThumbnail'
 export type UploadItem = {
   id: string
   file: File
+  relativePath: string
   status: 'idle' | 'uploading' | 'success' | 'error'
   error?: string
   thumbStatus?: 'idle' | 'processing' | 'uploading' | 'success' | 'error'
@@ -24,6 +25,14 @@ const joinPath = (base: string, next: string) => {
   if (!a) return b
   if (!b) return a
   return `${a}/${b}`
+}
+
+const getDirName = (fullPath: string) => {
+  const trimmed = fullPath.replace(/^\/+|\/+$/g, '')
+  if (!trimmed) return ''
+  const parts = trimmed.split('/')
+  parts.pop()
+  return parts.join('/')
 }
 
 type UploadConfig = {
@@ -161,6 +170,9 @@ export const useUploadQueue = () => {
   const addFiles = (files: FileList | File[]) => {
     const list = Array.from(files).map((file) => {
       const id = buildId(file)
+      const relativePath = file.webkitRelativePath
+        ? getDirName(file.webkitRelativePath)
+        : ''
       uploadStateRef.current.set(id, {
         originalUploaded: false,
         thumbUploaded: false,
@@ -169,6 +181,7 @@ export const useUploadQueue = () => {
       return {
         id,
         file,
+        relativePath,
         status: 'idle' as const,
         thumbStatus: isImageFile(file.name, file.type)
           ? ('idle' as const)
@@ -211,8 +224,12 @@ export const useUploadQueue = () => {
 
     const uploadLimit = createLimiter(UPLOAD_CONCURRENCY)
     const thumbLimit = createLimiter(THUMB_CONCURRENCY)
-    const thumbDir = joinPath(path, '.thumb')
     const isRetry = mode === 'retry'
+
+    const getItemUploadPath = (item: UploadItem) =>
+      item.relativePath ? joinPath(path, item.relativePath) : path
+    const getItemThumbDir = (item: UploadItem) =>
+      joinPath(getItemUploadPath(item), '.thumb')
     const retryFailedOnce = new Set<string>()
     const rollbackTriggered = new Set<string>()
 
@@ -251,12 +268,14 @@ export const useUploadQueue = () => {
         }
       uploadStateRef.current.set(item.id, state)
       const deletions: Array<Promise<void>> = []
+      const itemUploadPath = getItemUploadPath(item)
+      const itemThumbDir = getItemThumbDir(item)
       if (state.originalUploaded) {
         deletions.push(
           deleteFileResolved(
             endpoint,
             config,
-            path,
+            itemUploadPath,
             item.file.name,
             controller.signal,
           ),
@@ -267,7 +286,7 @@ export const useUploadQueue = () => {
           deleteFileResolved(
             endpoint,
             config,
-            thumbDir,
+            itemThumbDir,
             getThumbFileName(item.file.name),
             controller.signal,
           ),
@@ -327,6 +346,9 @@ export const useUploadQueue = () => {
         }))
       }
 
+      const itemUploadPath = getItemUploadPath(item)
+      const itemThumbDir = getItemThumbDir(item)
+
       if (needsOriginal) {
         tasks.push(
           uploadLimit(async () => {
@@ -336,7 +358,7 @@ export const useUploadQueue = () => {
               await uploadFileResolved(
                 endpoint,
                 config,
-                path,
+                itemUploadPath,
                 item.file,
                 undefined,
                 controller.signal,
@@ -346,7 +368,7 @@ export const useUploadQueue = () => {
                 await deleteFileResolved(
                   endpoint,
                   config,
-                  path,
+                  itemUploadPath,
                   item.file.name,
                   controller.signal,
                 )
@@ -419,7 +441,7 @@ export const useUploadQueue = () => {
               await uploadFileResolved(
                 endpoint,
                 config,
-                thumbDir,
+                itemThumbDir,
                 thumbFile,
                 undefined,
                 controller.signal,
@@ -429,7 +451,7 @@ export const useUploadQueue = () => {
                 await deleteFileResolved(
                   endpoint,
                   config,
-                  thumbDir,
+                  itemThumbDir,
                   thumbFile.name,
                   controller.signal,
                 )
