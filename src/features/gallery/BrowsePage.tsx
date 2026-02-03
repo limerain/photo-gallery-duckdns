@@ -124,11 +124,16 @@ function BrowsePage() {
   })
 
   const parentPath = getParentPath(path)
-  const fromParent = (
-    location.state as {
-      fromParent?: { parentPath: string; scrollY: number; visibleCount: number }
-    } | null
-  )?.fromParent
+
+  type ScrollState = { path: string; scrollY: number; visibleCount: number }
+  const locationState = location.state as {
+    parentStack?: ScrollState[]
+    restoreFromView?: boolean
+    restoreFromChild?: boolean
+    browseRestore?: { scrollY: number; visibleCount: number }
+  } | null
+  const parentStack = locationState?.parentStack ?? []
+
   const entries = query.data ?? []
   const visibleEntries = useMemo(
     () => entries.slice(0, visibleCount),
@@ -154,13 +159,9 @@ function BrowsePage() {
 
   // view 또는 하위 폴더에서 복귀 시 스크롤/visibleCount 복원
   useEffect(() => {
-    const state = location.state as {
-      restoreFromView?: boolean
-      restoreFromChild?: boolean
-      browseRestore?: { scrollY: number; visibleCount: number }
-    } | null
     const shouldRestore =
-      (state?.restoreFromView || state?.restoreFromChild) && state.browseRestore
+      (locationState?.restoreFromView || locationState?.restoreFromChild) &&
+      locationState.browseRestore
     if (!shouldRestore) {
       // 복원 상태가 없으면 기존 동작: visibleCount 리셋
       setVisibleCount(40)
@@ -168,7 +169,7 @@ function BrowsePage() {
       return
     }
 
-    const { scrollY, visibleCount: savedCount } = state.browseRestore!
+    const { scrollY, visibleCount: savedCount } = locationState.browseRestore!
     setVisibleCount(Math.max(40, savedCount))
 
     // DOM이 반영된 후 스크롤 복원
@@ -178,9 +179,9 @@ function BrowsePage() {
       })
     })
 
-    // state 1회성 소비: 제거
-    window.history.replaceState({}, '')
-  }, [location.state, path])
+    // state 1회성 소비: parentStack만 유지하고 나머지 제거
+    window.history.replaceState({ parentStack }, '')
+  }, [location.state, path, locationState, parentStack])
 
   useEffect(() => {
     const markScrolled = () => {
@@ -279,17 +280,19 @@ function BrowsePage() {
             {path ? (
               <Link
                 to={`/browse/${parentPath}`}
-                state={
-                  fromParent && fromParent.parentPath === parentPath
-                    ? {
-                        restoreFromChild: true,
-                        browseRestore: {
-                          scrollY: fromParent.scrollY,
-                          visibleCount: fromParent.visibleCount,
-                        },
-                      }
-                    : undefined
-                }
+                state={(() => {
+                  const top = parentStack[parentStack.length - 1]
+                  if (!top || top.path !== parentPath) return undefined
+                  const remainingStack = parentStack.slice(0, -1)
+                  return {
+                    restoreFromChild: true,
+                    browseRestore: {
+                      scrollY: top.scrollY,
+                      visibleCount: top.visibleCount,
+                    },
+                    parentStack: remainingStack,
+                  }
+                })()}
                 className="inline-flex h-9 items-center rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-semibold text-zinc-100 hover:bg-white/10"
               >
                 상위로
@@ -325,11 +328,14 @@ function BrowsePage() {
                   key={entryPath}
                   to={`/browse/${entryPath}`}
                   state={{
-                    fromParent: {
-                      parentPath: path,
-                      scrollY: window.scrollY,
-                      visibleCount: visibleCountRef.current,
-                    },
+                    parentStack: [
+                      ...parentStack,
+                      {
+                        path,
+                        scrollY: window.scrollY,
+                        visibleCount: visibleCountRef.current,
+                      },
+                    ],
                   }}
                   className="group rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/7"
                 >
