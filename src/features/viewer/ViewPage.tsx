@@ -1,14 +1,23 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { buildCdnUrl, buildImageTransformUrl } from '../bunny/cdnUrl'
 import { useAppSettings } from '../settings/settingsStore'
 import { isImageFile, isVideoFile } from '../gallery/fileTypes'
 import { Button } from '../../ui/Button'
 import { Card } from '../../ui/Card'
 
+interface FromBrowseState {
+  browsePath: string
+  scrollY: number
+  visibleCount: number
+}
+
 function ViewPage() {
   const params = useParams()
   const path = params['*'] ?? ''
+  const location = useLocation()
+  const fromBrowse = (location.state as { fromBrowse?: FromBrowseState } | null)
+    ?.fromBrowse
   const { cdnBaseUrl, alwaysOriginal } = useAppSettings()
   const [forceOriginal, setForceOriginal] = useState(false)
 
@@ -41,6 +50,17 @@ function ViewPage() {
         </div>
         <Link
           to={`/browse/${path.split('/').slice(0, -1).join('/')}`}
+          state={
+            fromBrowse
+              ? {
+                  restoreFromView: true,
+                  browseRestore: {
+                    scrollY: fromBrowse.scrollY,
+                    visibleCount: fromBrowse.visibleCount,
+                  },
+                }
+              : undefined
+          }
           className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-zinc-100 hover:bg-white/10"
         >
           목록으로

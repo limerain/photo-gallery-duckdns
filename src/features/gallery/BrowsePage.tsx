@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { buildCdnUrl } from '../bunny/cdnUrl'
 import { listDirectory, StorageEntry, uploadFile } from '../bunny/storageClient'
 import { useAppSettings } from '../settings/settingsStore'
@@ -89,12 +89,16 @@ function Thumb({
 function BrowsePage() {
   const params = useParams()
   const path = params['*'] ?? ''
+  const location = useLocation()
+  const navigate = useNavigate()
   const { cdnBaseUrl, storageZoneName, storageAccessKey } = useAppSettings()
   const [visibleCount, setVisibleCount] = useState(40)
   const [isUploadOpen, setIsUploadOpen] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const userScrolledRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const visibleCountRef = useRef(visibleCount)
+  visibleCountRef.current = visibleCount
   const queryClient = useQueryClient()
   const { items, addFiles, clear, uploadAll, retryFailed, cancel } =
     useUploadQueue()
@@ -136,10 +140,32 @@ function BrowsePage() {
     await queryClient.invalidateQueries({ queryKey: ['storage', 'list'] })
   }
 
+  // view에서 복귀 시 스크롤/visibleCount 복원
   useEffect(() => {
-    setVisibleCount(40)
-    userScrolledRef.current = false
-  }, [path])
+    const state = location.state as {
+      restoreFromView?: boolean
+      browseRestore?: { scrollY: number; visibleCount: number }
+    } | null
+    if (!state?.restoreFromView || !state.browseRestore) {
+      // 복원 상태가 없으면 기존 동작: visibleCount 리셋
+      setVisibleCount(40)
+      userScrolledRef.current = false
+      return
+    }
+
+    const { scrollY, visibleCount: savedCount } = state.browseRestore
+    setVisibleCount(Math.max(40, savedCount))
+
+    // DOM이 반영된 후 스크롤 복원
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollY)
+      })
+    })
+
+    // state 1회성 소비: 제거
+    window.history.replaceState({}, '')
+  }, [location.state, path])
 
   useEffect(() => {
     const markScrolled = () => {
@@ -288,10 +314,21 @@ function BrowsePage() {
             if (name === '.keep') return null
 
             return (
-              <Link
+              <button
+                type="button"
                 key={entryPath}
-                to={`/view/${entryPath}`}
-                className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:bg-white/7"
+                onClick={() => {
+                  navigate(`/view/${entryPath}`, {
+                    state: {
+                      fromBrowse: {
+                        browsePath: path,
+                        scrollY: window.scrollY,
+                        visibleCount: visibleCountRef.current,
+                      },
+                    },
+                  })
+                }}
+                className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-left transition hover:bg-white/7"
               >
                 <div className="aspect-square w-full bg-black/40">
                   {isImage ? (
@@ -311,7 +348,7 @@ function BrowsePage() {
                     {name}
                   </div>
                 </div>
-              </Link>
+              </button>
             )
           })}
         </div>
