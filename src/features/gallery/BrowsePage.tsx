@@ -124,6 +124,11 @@ function BrowsePage() {
   })
 
   const parentPath = getParentPath(path)
+  const fromParent = (
+    location.state as {
+      fromParent?: { parentPath: string; scrollY: number; visibleCount: number }
+    } | null
+  )?.fromParent
   const entries = query.data ?? []
   const visibleEntries = useMemo(
     () => entries.slice(0, visibleCount),
@@ -147,20 +152,23 @@ function BrowsePage() {
     await queryClient.invalidateQueries({ queryKey: ['storage', 'list'] })
   }
 
-  // view에서 복귀 시 스크롤/visibleCount 복원
+  // view 또는 하위 폴더에서 복귀 시 스크롤/visibleCount 복원
   useEffect(() => {
     const state = location.state as {
       restoreFromView?: boolean
+      restoreFromChild?: boolean
       browseRestore?: { scrollY: number; visibleCount: number }
     } | null
-    if (!state?.restoreFromView || !state.browseRestore) {
+    const shouldRestore =
+      (state?.restoreFromView || state?.restoreFromChild) && state.browseRestore
+    if (!shouldRestore) {
       // 복원 상태가 없으면 기존 동작: visibleCount 리셋
       setVisibleCount(40)
       userScrolledRef.current = false
       return
     }
 
-    const { scrollY, visibleCount: savedCount } = state.browseRestore
+    const { scrollY, visibleCount: savedCount } = state.browseRestore!
     setVisibleCount(Math.max(40, savedCount))
 
     // DOM이 반영된 후 스크롤 복원
@@ -271,6 +279,17 @@ function BrowsePage() {
             {path ? (
               <Link
                 to={`/browse/${parentPath}`}
+                state={
+                  fromParent && fromParent.parentPath === parentPath
+                    ? {
+                        restoreFromChild: true,
+                        browseRestore: {
+                          scrollY: fromParent.scrollY,
+                          visibleCount: fromParent.visibleCount,
+                        },
+                      }
+                    : undefined
+                }
                 className="inline-flex h-9 items-center rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-semibold text-zinc-100 hover:bg-white/10"
               >
                 상위로
@@ -305,6 +324,13 @@ function BrowsePage() {
                 <Link
                   key={entryPath}
                   to={`/browse/${entryPath}`}
+                  state={{
+                    fromParent: {
+                      parentPath: path,
+                      scrollY: window.scrollY,
+                      visibleCount: visibleCountRef.current,
+                    },
+                  }}
                   className="group rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/7"
                 >
                   <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/5 text-xl">
