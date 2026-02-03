@@ -25,7 +25,7 @@ function ViewPage() {
 
   if (!path) {
     return (
-      <Card className="p-6 text-sm text-zinc-400">
+      <Card className="p-6 text-sm text-content-muted">
         파일을 선택해줘.
       </Card>
     )
@@ -42,8 +42,8 @@ function ViewPage() {
     <div className="space-y-4">
       <Card className="flex items-center justify-between gap-4 p-4">
         <div>
-          <h1 className="text-lg font-semibold text-white">뷰어</h1>
-          <p className="mt-1 text-sm text-zinc-400">{name}</p>
+          <h1 className="text-lg font-semibold text-content-primary">뷰어</h1>
+          <p className="mt-1 text-sm text-content-muted">{name}</p>
         </div>
         <Link
           to={`/browse/${top?.path ?? path.split('/').slice(0, -1).join('/')}`}
@@ -59,7 +59,7 @@ function ViewPage() {
                 }
               : undefined
           }
-          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-zinc-100 hover:bg-white/10"
+          className="rounded-lg border border-border-default bg-surface-elevated px-3 py-2 text-sm font-semibold text-content-primary hover:bg-surface-elevated-hover"
         >
           목록으로
         </Link>
@@ -68,7 +68,7 @@ function ViewPage() {
       {isImage ? (
         <Card className="p-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-zinc-200">
+            <span className="text-sm font-semibold text-content-secondary">
               {showOriginal ? '원본' : '최적화'}
             </span>
             <Button
@@ -84,7 +84,7 @@ function ViewPage() {
             <img
               src={showOriginal ? cdnUrl : optimizedUrl}
               alt={name}
-              className="max-h-[75vh] w-auto max-w-full rounded-xl border border-white/10 bg-black/30"
+              className="max-h-[75vh] w-auto max-w-full rounded-xl border border-border-default bg-surface-media"
             />
           </div>
         </Card>
@@ -93,13 +93,13 @@ function ViewPage() {
           <video
             src={cdnUrl}
             controls
-            className="max-h-[75vh] w-full rounded-xl border border-white/10 bg-black"
+            className="max-h-[75vh] w-full rounded-xl border border-border-default bg-surface-base"
           />
         </Card>
       ) : (
-        <Card className="p-6 text-sm text-zinc-400">
+        <Card className="p-6 text-sm text-content-muted">
           미리보기를 지원하지 않는 파일이야.
-          <a className="ml-2 text-zinc-200 underline" href={cdnUrl}>
+          <a className="ml-2 text-content-secondary underline" href={cdnUrl}>
             다운로드
           </a>
         </Card>

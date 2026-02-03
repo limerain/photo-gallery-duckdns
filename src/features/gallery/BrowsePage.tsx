@@ -70,7 +70,7 @@ function Thumb({
   const [ok, setOk] = useState(true)
   if (!ok) {
     return (
-      <div className="grid h-full w-full place-items-center text-3xl text-zinc-400">
+      <div className="grid h-full w-full place-items-center text-3xl text-content-muted">
         {fallback}
       </div>
     )
@@ -94,9 +94,13 @@ function BrowsePage() {
   const { cdnBaseUrl, storageZoneName, storageAccessKey } = useAppSettings()
   const [visibleCount, setVisibleCount] = useState(40)
   const [isUploadOpen, setIsUploadOpen] = useState(false)
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
+  const [folderName, setFolderName] = useState('')
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const userScrolledRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const folderInputRef = useRef<HTMLInputElement | null>(null)
   const visibleCountRef = useRef(visibleCount)
   visibleCountRef.current = visibleCount
   const queryClient = useQueryClient()
@@ -139,21 +143,36 @@ function BrowsePage() {
     [entries, visibleCount],
   )
 
-  const handleCreateFolder = async () => {
-    const raw = window.prompt('폴더 이름')
-    if (!raw) return
-    const folderName = normalizePath(raw)
-    if (!folderName) return
+  const handleOpenCreateFolder = () => {
+    setFolderName('')
+    setIsCreateFolderOpen(true)
+    setTimeout(() => folderInputRef.current?.focus(), 0)
+  }
 
-    const keepFile = new File([new Uint8Array()], '.keep', {
-      type: 'text/plain',
-    })
-    await uploadFile(
-      { storageZoneName, storageAccessKey },
-      joinPath(path, folderName),
-      keepFile,
-    )
-    await queryClient.invalidateQueries({ queryKey: ['storage', 'list'] })
+  const handleCloseCreateFolder = () => {
+    setIsCreateFolderOpen(false)
+    setFolderName('')
+  }
+
+  const handleCreateFolder = async () => {
+    const normalized = normalizePath(folderName)
+    if (!normalized) return
+
+    setIsCreatingFolder(true)
+    try {
+      const keepFile = new File([new Uint8Array()], '.keep', {
+        type: 'text/plain',
+      })
+      await uploadFile(
+        { storageZoneName, storageAccessKey },
+        joinPath(path, normalized),
+        keepFile,
+      )
+      await queryClient.invalidateQueries({ queryKey: ['storage', 'list'] })
+      handleCloseCreateFolder()
+    } finally {
+      setIsCreatingFolder(false)
+    }
   }
 
   // view 또는 하위 폴더에서 복귀 시 스크롤/visibleCount 복원
@@ -260,11 +279,11 @@ function BrowsePage() {
       <Card className="sticky top-0 z-20 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-lg font-semibold text-white">갤러리</h1>
-            <p className="mt-1 text-sm text-zinc-400">/{path || ''}</p>
+            <h1 className="text-lg font-semibold text-content-primary">갤러리</h1>
+            <p className="mt-1 text-sm text-content-muted">/{path || ''}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button type="button" size="sm" onClick={handleCreateFolder}>
+            <Button type="button" size="sm" onClick={handleOpenCreateFolder}>
               폴더 만들기
             </Button>
             <Button
@@ -291,7 +310,7 @@ function BrowsePage() {
                     parentStack: remainingStack,
                   }
                 })()}
-                className="inline-flex h-9 items-center rounded-lg border border-white/10 bg-white/5 px-3 text-sm font-semibold text-zinc-100 hover:bg-white/10"
+                className="inline-flex h-9 items-center rounded-lg border border-border-default bg-surface-elevated px-3 text-sm font-semibold text-content-primary hover:bg-surface-elevated-hover"
               >
                 상위로
               </Link>
@@ -301,11 +320,11 @@ function BrowsePage() {
       </Card>
 
       {query.isLoading ? (
-        <Card className="p-6 text-sm text-zinc-400">불러오는 중...</Card>
+        <Card className="p-6 text-sm text-content-muted">불러오는 중...</Card>
       ) : null}
 
       {query.isError ? (
-        <Card className="border-red-500/20 bg-red-500/5 p-6 text-sm text-red-200">
+        <Card className="border-danger-border bg-danger-bg p-6 text-sm text-danger-text">
           목록을 불러오지 못했어.
         </Card>
       ) : null}
@@ -335,15 +354,15 @@ function BrowsePage() {
                       },
                     ],
                   }}
-                  className="group rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/7"
+                  className="group rounded-2xl border border-border-default bg-surface-elevated p-4 transition hover:bg-surface-elevated-hover"
                 >
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/5 text-xl">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-surface-elevated text-xl">
                     📁
                   </div>
-                  <div className="mt-3 truncate text-sm font-semibold text-zinc-100">
+                  <div className="mt-3 truncate text-sm font-semibold text-content-primary">
                     {name}
                   </div>
-                  <div className="mt-1 text-xs text-zinc-500">폴더</div>
+                  <div className="mt-1 text-xs text-content-muted">폴더</div>
                 </Link>
               )
             }
@@ -368,9 +387,9 @@ function BrowsePage() {
                     },
                   })
                 }}
-                className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-left transition hover:bg-white/7"
+                className="group overflow-hidden rounded-2xl border border-border-default bg-surface-elevated text-left transition hover:bg-surface-elevated-hover"
               >
-                <div className="aspect-square w-full bg-black/40">
+                <div className="aspect-square w-full bg-surface-media">
                   {isImage ? (
                     <Thumb
                       src={buildCdnUrl(cdnBaseUrl, buildThumbPath(entryPath))}
@@ -378,13 +397,13 @@ function BrowsePage() {
                       fallback="🖼️"
                     />
                   ) : (
-                    <div className="grid h-full w-full place-items-center text-3xl text-zinc-400">
+                    <div className="grid h-full w-full place-items-center text-3xl text-content-muted">
                       {isVideo ? '🎬' : '📄'}
                     </div>
                   )}
                 </div>
                 <div className="px-3 py-3">
-                  <div className="truncate text-sm font-semibold text-zinc-100">
+                  <div className="truncate text-sm font-semibold text-content-primary">
                     {name}
                   </div>
                 </div>
@@ -426,6 +445,48 @@ function BrowsePage() {
             onStart={handleStartUpload}
             onCancelOrClose={handleCloseUpload}
           />
+        </div>
+      ) : null}
+
+      {isCreateFolderOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-overlay">
+          <Card className="w-full max-w-sm p-6">
+            <h2 className="text-lg font-semibold text-content-primary">폴더 만들기</h2>
+            <input
+              ref={folderInputRef}
+              type="text"
+              value={folderName}
+              onChange={(e) => setFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isCreatingFolder) {
+                  handleCreateFolder()
+                } else if (e.key === 'Escape') {
+                  handleCloseCreateFolder()
+                }
+              }}
+              placeholder="폴더 이름을 입력하세요"
+              className="mt-4 w-full rounded-lg border border-border-default bg-surface-elevated px-3 py-2 text-sm text-content-primary placeholder-content-muted outline-none focus:border-border-hover"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCloseCreateFolder}
+                disabled={isCreatingFolder}
+              >
+                취소
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                onClick={handleCreateFolder}
+                disabled={!folderName.trim() || isCreatingFolder}
+              >
+                {isCreatingFolder ? '생성 중...' : '만들기'}
+              </Button>
+            </div>
+          </Card>
         </div>
       ) : null}
     </div>

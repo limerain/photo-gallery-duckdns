@@ -1,11 +1,19 @@
+import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './app/AppLayout'
 import BrowsePage from './features/gallery/BrowsePage'
 import SettingsPage from './features/settings/SettingsPage'
 import SetupPage from './features/settings/SetupPage'
+import { useAppSettings } from './features/settings/settingsStore'
 import ViewPage from './features/viewer/ViewPage'
 
 function App() {
+  const theme = useAppSettings((s) => s.theme)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
+
   return (
     <Routes>
       <Route path="/setup" element={<SetupPage />} />

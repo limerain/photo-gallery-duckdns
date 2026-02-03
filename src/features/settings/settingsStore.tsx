@@ -1,13 +1,25 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
+export type ThemePreset = 'dark' | 'light' | 'midnight' | 'forest' | 'sunset'
+
+export const themePresets: { id: ThemePreset; name: string }[] = [
+  { id: 'dark', name: 'Dark' },
+  { id: 'light', name: 'Light' },
+  { id: 'midnight', name: 'Midnight Blue' },
+  { id: 'forest', name: 'Forest' },
+  { id: 'sunset', name: 'Sunset' },
+]
+
 type SettingsState = {
   cdnBaseUrl: string
   storageZoneName: string
   storageAccessKey: string
   alwaysOriginal: boolean
+  theme: ThemePreset
   setConfig: (config: Partial<SettingsState>) => void
   setAlwaysOriginal: (value: boolean) => void
+  setTheme: (theme: ThemePreset) => void
   reset: () => void
 }
 
@@ -16,6 +28,7 @@ const initialState = {
   storageZoneName: '',
   storageAccessKey: '',
   alwaysOriginal: false,
+  theme: 'dark' as ThemePreset,
 }
 
 export const useAppSettings = create<SettingsState>()(
@@ -24,6 +37,7 @@ export const useAppSettings = create<SettingsState>()(
       ...initialState,
       setConfig: (config) => set((state) => ({ ...state, ...config })),
       setAlwaysOriginal: (value) => set({ alwaysOriginal: value }),
+      setTheme: (theme) => set({ theme }),
       reset: () => set(initialState),
     }),
     {
@@ -34,6 +48,7 @@ export const useAppSettings = create<SettingsState>()(
         storageZoneName: state.storageZoneName,
         storageAccessKey: state.storageAccessKey,
         alwaysOriginal: state.alwaysOriginal,
+        theme: state.theme,
       }),
     },
   ),

@@ -45,15 +45,15 @@ function SetupPage() {
   return (
     <div className="mx-auto grid max-w-xl gap-4">
       <div className="px-1">
-        <h1 className="text-2xl font-semibold text-white">초기 설정</h1>
-        <p className="mt-2 text-sm text-zinc-400">
+        <h1 className="text-2xl font-semibold text-content-primary">초기 설정</h1>
+        <p className="mt-2 text-sm text-content-muted">
           인증 없이 쓰는 대신, 이 값들은 세션스토리지에만 저장돼.
         </p>
       </div>
       <Card className="p-6">
         <form className="space-y-4" onSubmit={handleSubmit}>
           <label className="block">
-            <div className="text-sm font-semibold text-zinc-200">
+            <div className="text-sm font-semibold text-content-secondary">
               CDN 메인 URL
             </div>
             <Input
@@ -67,7 +67,7 @@ function SetupPage() {
             />
           </label>
           <label className="block">
-            <div className="text-sm font-semibold text-zinc-200">
+            <div className="text-sm font-semibold text-content-secondary">
               Storage Zone Name
             </div>
             <Input
@@ -83,7 +83,7 @@ function SetupPage() {
             />
           </label>
           <label className="block">
-            <div className="text-sm font-semibold text-zinc-200">
+            <div className="text-sm font-semibold text-content-secondary">
               Storage AccessKey
             </div>
             <Input
@@ -98,7 +98,7 @@ function SetupPage() {
               }
             />
           </label>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="text-sm text-danger-text">{error}</p> : null}
           <Button type="submit" variant="primary" className="w-full">
             저장하고 시작하기
           </Button>

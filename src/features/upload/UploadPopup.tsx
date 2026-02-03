@@ -56,21 +56,21 @@ function UploadPopup({
 
   const toneClass =
     tone === 'success'
-      ? 'border-emerald-500/40 bg-emerald-500/10'
+      ? 'border-success-border bg-success-bg'
       : tone === 'error'
-        ? 'border-red-500/40 bg-red-500/10'
-        : 'border-white/10 bg-zinc-950/90'
+        ? 'border-danger-border bg-danger-bg'
+        : 'border-border-default bg-surface-base/90'
 
   const ringClass =
     tone === 'success'
-      ? 'stroke-emerald-300'
+      ? 'stroke-success-text'
       : tone === 'error'
-        ? 'stroke-red-300'
-        : 'stroke-white/70'
+        ? 'stroke-danger-text'
+        : 'stroke-content-secondary'
 
   return (
     <div
-      className={`w-80 rounded-2xl border px-4 py-4 text-sm text-white shadow-lg backdrop-blur ${toneClass}`}
+      className={`w-80 rounded-2xl border px-4 py-4 text-sm text-content-primary shadow-lg backdrop-blur ${toneClass}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -80,7 +80,7 @@ function UploadPopup({
               cy="20"
               r={radius}
               strokeWidth={strokeWidth}
-              className="stroke-white/15"
+              className="stroke-border-default"
               fill="none"
             />
             <circle
@@ -97,7 +97,7 @@ function UploadPopup({
           </svg>
           <div className="min-w-0">
             <div className="text-sm font-semibold">{statusLabel}</div>
-            <div className="mt-1 text-xs text-zinc-200">
+            <div className="mt-1 text-xs text-content-secondary">
               {progressIndex}/{total || 0}
             </div>
           </div>
@@ -105,7 +105,7 @@ function UploadPopup({
         <button
           type="button"
           onClick={onCancelOrClose}
-          className="grid h-7 w-7 place-items-center rounded-full border border-white/10 text-xs text-white/80 hover:bg-white/10"
+          className="grid h-7 w-7 place-items-center rounded-full border border-border-default text-xs text-content-secondary hover:bg-surface-elevated"
           aria-label="업로드 닫기"
         >
           ✕
@@ -113,7 +113,7 @@ function UploadPopup({
       </div>
 
       {currentItem ? (
-        <div className="mt-3 truncate text-xs text-zinc-300">
+        <div className="mt-3 truncate text-xs text-content-secondary">
           {currentItem.file.name}
         </div>
       ) : null}

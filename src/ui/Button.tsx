@@ -10,14 +10,14 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 }
 
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition outline-none focus-visible:ring-2 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition outline-none focus-visible:ring-2 focus-visible:ring-border-hover disabled:cursor-not-allowed disabled:opacity-50'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-white text-zinc-900 hover:bg-zinc-200',
+  primary: 'bg-accent text-accent-text hover:bg-accent-hover',
   secondary:
-    'border border-white/10 bg-white/5 text-zinc-100 hover:bg-white/10',
-  ghost: 'text-zinc-200 hover:bg-white/5',
-  danger: 'border border-red-400/30 bg-red-500/10 text-red-100 hover:bg-red-500/20',
+    'border border-border-default bg-surface-elevated text-content-primary hover:bg-surface-elevated-hover',
+  ghost: 'text-content-secondary hover:bg-surface-elevated',
+  danger: 'border border-danger-border bg-danger-bg text-danger-text hover:bg-danger-bg/80',
 }
 
 const sizes: Record<Size, string> = {
