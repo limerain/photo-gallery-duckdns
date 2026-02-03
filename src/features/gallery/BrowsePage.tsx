@@ -243,6 +243,7 @@ function BrowsePage() {
 
   const handleFilesSelected = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files?.length) {
+      clear()
       addFiles(event.target.files)
       setIsUploadOpen(true)
       event.target.value = ''
