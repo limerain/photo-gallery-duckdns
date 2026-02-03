@@ -27,6 +27,24 @@ const endpointCandidates = [
 
 const endpointCache = new Map<string, string>()
 
+const CACHE_KEY_PREFIX = 'bunny-endpoint-cache::'
+
+const loadCachedEndpoint = (cacheKey: string): string | null => {
+  try {
+    return sessionStorage.getItem(CACHE_KEY_PREFIX + cacheKey)
+  } catch {
+    return null
+  }
+}
+
+const saveCachedEndpoint = (cacheKey: string, endpoint: string) => {
+  try {
+    sessionStorage.setItem(CACHE_KEY_PREFIX + cacheKey, endpoint)
+  } catch {
+    // sessionStorage 사용 불가 시 무시
+  }
+}
+
 const normalizePath = (path: string) =>
   path.replace(/^\/+|\/+$/g, '').trim()
 
@@ -58,11 +76,19 @@ const getCacheKey = (config: StorageConfig) =>
 
 export const resolveEndpoint = async (config: StorageConfig) => {
   const cacheKey = getCacheKey(config)
-  const cached = endpointCache.get(cacheKey)
-  if (cached) {
-    return cached
+
+  // 1) 메모리 캐시 확인
+  const memCached = endpointCache.get(cacheKey)
+  if (memCached) return memCached
+
+  // 2) sessionStorage 확인
+  const storageCached = loadCachedEndpoint(cacheKey)
+  if (storageCached) {
+    endpointCache.set(cacheKey, storageCached)
+    return storageCached
   }
 
+  // 3) 엔드포인트 순회
   let lastError = ''
   for (const endpoint of endpointCandidates) {
     try {
@@ -74,6 +100,7 @@ export const resolveEndpoint = async (config: StorageConfig) => {
       )
       if (response.ok) {
         endpointCache.set(cacheKey, endpoint)
+        saveCachedEndpoint(cacheKey, endpoint)
         return endpoint
       }
       lastError = `${endpoint} responded ${response.status}`
