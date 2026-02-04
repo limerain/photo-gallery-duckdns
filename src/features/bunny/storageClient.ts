@@ -198,3 +198,36 @@ export const uploadFile = async (
     signal,
   )
 }
+
+const joinPath = (base: string, next: string) => {
+  const a = normalizePath(base)
+  const b = normalizePath(next)
+  if (!a) return b
+  if (!b) return a
+  return `${a}/${b}`
+}
+
+export const deleteFile = async (
+  config: StorageConfig,
+  path: string,
+  fileName: string,
+) => {
+  const endpoint = await resolveEndpoint(config)
+  await deleteFileResolved(endpoint, config, path, fileName)
+}
+
+export const deleteDirectory = async (
+  config: StorageConfig,
+  dirPath: string,
+): Promise<void> => {
+  const entries = await listDirectory(config, dirPath)
+  for (const entry of entries) {
+    const name = entry.ObjectName ?? ''
+    if (!name) continue
+    if (entry.IsDirectory) {
+      await deleteDirectory(config, joinPath(dirPath, name))
+    } else {
+      await deleteFile(config, dirPath, name)
+    }
+  }
+}

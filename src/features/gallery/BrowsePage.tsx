@@ -3,7 +3,13 @@ import type { ChangeEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buildCdnUrl } from '../bunny/cdnUrl'
-import { listDirectory, StorageEntry, uploadFile } from '../bunny/storageClient'
+import type { StorageEntry } from '../bunny/storageClient'
+import {
+  listDirectory,
+  uploadFile,
+  deleteFile,
+  deleteDirectory,
+} from '../bunny/storageClient'
 import { useAppSettings } from '../settings/settingsStore'
 import { isImageFile, isVideoFile } from './fileTypes'
 import { Button } from '../../ui/Button'
@@ -97,6 +103,10 @@ function BrowsePage() {
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
+  const [isSelectMode, setIsSelectMode] = useState(false)
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const dirInputRef = useRef<HTMLInputElement | null>(null)
@@ -106,11 +116,13 @@ function BrowsePage() {
   const { items, addFiles, clear, uploadAll, retryFailed, cancel } =
     useUploadQueue()
 
-  // path 변경 시 업로드 큐 초기화
+  // path 변경 시 업로드 큐 및 선택 상태 초기화
   useEffect(() => {
     cancel()
     clear()
     setIsUploadOpen(false)
+    setIsSelectMode(false)
+    setSelectedItems(new Set())
   }, [path, cancel, clear])
 
   const query = useQuery({
@@ -143,6 +155,69 @@ function BrowsePage() {
   const handleCloseCreateFolder = () => {
     setIsCreateFolderOpen(false)
     setFolderName('')
+  }
+
+  const handleToggleSelectMode = () => {
+    setIsSelectMode((prev) => !prev)
+    setSelectedItems(new Set())
+  }
+
+  const handleToggleSelect = (entryPath: string) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev)
+      if (next.has(entryPath)) {
+        next.delete(entryPath)
+      } else {
+        next.add(entryPath)
+      }
+      return next
+    })
+  }
+
+  const handleOpenDeleteConfirm = () => {
+    if (selectedItems.size > 0) {
+      setIsDeleteConfirmOpen(true)
+    }
+  }
+
+  const handleCloseDeleteConfirm = () => {
+    setIsDeleteConfirmOpen(false)
+  }
+
+  const handleDelete = async () => {
+    if (selectedItems.size === 0) return
+    setIsDeleting(true)
+    try {
+      const config = { storageZoneName, storageAccessKey }
+      for (const itemPath of selectedItems) {
+        const entry = entries.find((e) => buildEntryPath(e, path) === itemPath)
+        if (!entry) continue
+        const name = entry.ObjectName ?? ''
+        if (entry.IsDirectory) {
+          // 폴더 삭제 (재귀)
+          await deleteDirectory(config, itemPath)
+        } else {
+          // 파일 삭제
+          await deleteFile(config, path, name)
+          // 썸네일도 삭제 시도 (실패해도 무시)
+          if (isImageFile(name, entry.ContentType)) {
+            const thumbDir = path ? `${path}/.thumb` : '.thumb'
+            const thumbName = `${getBaseName(name)}.webp`
+            try {
+              await deleteFile(config, thumbDir, thumbName)
+            } catch {
+              // 썸네일 없으면 무시
+            }
+          }
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: ['storage', 'list'] })
+      setSelectedItems(new Set())
+      setIsSelectMode(false)
+      handleCloseDeleteConfirm()
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const handleCreateFolder = async () => {
@@ -260,37 +335,59 @@ function BrowsePage() {
             <p className="mt-1 text-sm text-content-muted">/{path || ''}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button type="button" size="sm" onClick={handleOpenCreateFolder}>
-              폴더 만들기
+            <Button
+              type="button"
+              size="sm"
+              variant={isSelectMode ? 'primary' : undefined}
+              onClick={handleToggleSelectMode}
+            >
+              {isSelectMode ? '선택 취소' : '선택'}
             </Button>
-            <div ref={uploadMenuRef} className="relative">
+            {isSelectMode && selectedItems.size > 0 && (
               <Button
                 type="button"
                 size="sm"
-                variant="primary"
-                onClick={handleUploadMenuToggle}
+                variant="danger"
+                onClick={handleOpenDeleteConfirm}
               >
-                이 경로에 업로드
+                삭제 ({selectedItems.size})
               </Button>
-              {isUploadMenuOpen && (
-                <div className="absolute right-0 top-full z-30 mt-1 w-36 rounded-lg border border-border-default bg-[var(--bg-base)] py-1 shadow-lg">
-                  <button
+            )}
+            {!isSelectMode && (
+              <>
+                <Button type="button" size="sm" onClick={handleOpenCreateFolder}>
+                  폴더 만들기
+                </Button>
+                <div ref={uploadMenuRef} className="relative">
+                  <Button
                     type="button"
-                    className="w-full px-3 py-2 text-left text-sm text-content-primary hover:bg-surface-elevated-hover"
-                    onClick={handleUploadPick}
+                    size="sm"
+                    variant="primary"
+                    onClick={handleUploadMenuToggle}
                   >
-                    파일 선택
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-2 text-left text-sm text-content-primary hover:bg-surface-elevated-hover"
-                    onClick={handleFolderPick}
-                  >
-                    폴더 선택
-                  </button>
+                    이 경로에 업로드
+                  </Button>
+                  {isUploadMenuOpen && (
+                    <div className="absolute right-0 top-full z-30 mt-1 w-36 rounded-lg border border-border-default bg-[var(--bg-base)] py-1 shadow-lg">
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-sm text-content-primary hover:bg-surface-elevated-hover"
+                        onClick={handleUploadPick}
+                      >
+                        파일 선택
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left text-sm text-content-primary hover:bg-surface-elevated-hover"
+                        onClick={handleFolderPick}
+                      >
+                        폴더 선택
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
             {path ? (
               <Link
                 to={`/browse/${parentPath}`}
@@ -324,6 +421,38 @@ function BrowsePage() {
 
             if (isDir) {
               if (name === '.thumb') return null
+              const isSelected = selectedItems.has(entryPath)
+              if (isSelectMode) {
+                return (
+                  <button
+                    type="button"
+                    key={entryPath}
+                    onClick={() => handleToggleSelect(entryPath)}
+                    className={`group relative rounded-2xl border p-4 text-left transition ${
+                      isSelected
+                        ? 'border-accent-primary bg-accent-bg'
+                        : 'border-border-default bg-surface-elevated hover:bg-surface-elevated-hover'
+                    }`}
+                  >
+                    <div
+                      className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded border ${
+                        isSelected
+                          ? 'border-accent-primary bg-accent-primary text-white'
+                          : 'border-border-default bg-surface-elevated'
+                      }`}
+                    >
+                      {isSelected && <span className="text-xs">✓</span>}
+                    </div>
+                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-surface-elevated text-xl">
+                      📁
+                    </div>
+                    <div className="mt-3 truncate text-sm font-semibold text-content-primary">
+                      {name}
+                    </div>
+                    <div className="mt-1 text-xs text-content-muted">폴더</div>
+                  </button>
+                )
+              }
               return (
                 <Link
                   key={entryPath}
@@ -343,13 +472,33 @@ function BrowsePage() {
 
             if (name === '.keep') return null
 
+            const isSelected = selectedItems.has(entryPath)
             return (
               <button
                 type="button"
                 key={entryPath}
-                onClick={() => navigate(`/view/${entryPath}`)}
-                className="group overflow-hidden rounded-2xl border border-border-default bg-surface-elevated text-left transition hover:bg-surface-elevated-hover"
+                onClick={() =>
+                  isSelectMode
+                    ? handleToggleSelect(entryPath)
+                    : navigate(`/view/${entryPath}`)
+                }
+                className={`group relative overflow-hidden rounded-2xl border text-left transition ${
+                  isSelected
+                    ? 'border-accent-primary bg-accent-bg'
+                    : 'border-border-default bg-surface-elevated hover:bg-surface-elevated-hover'
+                }`}
               >
+                {isSelectMode && (
+                  <div
+                    className={`absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded border ${
+                      isSelected
+                        ? 'border-accent-primary bg-accent-primary text-white'
+                        : 'border-border-default bg-surface-elevated'
+                    }`}
+                  >
+                    {isSelected && <span className="text-xs">✓</span>}
+                  </div>
+                )}
                 <div className="aspect-square w-full bg-surface-media">
                   {isImage ? (
                     <Thumb
@@ -454,6 +603,38 @@ function BrowsePage() {
                 disabled={!folderName.trim() || isCreatingFolder}
               >
                 {isCreatingFolder ? '생성 중...' : '만들기'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {isDeleteConfirmOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-surface-overlay">
+          <Card className="w-full max-w-sm p-6">
+            <h2 className="text-lg font-semibold text-content-primary">삭제 확인</h2>
+            <p className="mt-4 text-sm text-content-muted">
+              선택한 {selectedItems.size}개 항목을 삭제하시겠습니까?
+              <br />
+              이 작업은 되돌릴 수 없습니다.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCloseDeleteConfirm}
+                disabled={isDeleting}
+              >
+                취소
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="danger"
+                onClick={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? '삭제 중...' : '삭제'}
               </Button>
             </div>
           </Card>
