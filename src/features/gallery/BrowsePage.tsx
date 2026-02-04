@@ -100,6 +100,7 @@ function BrowsePage() {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const userScrolledRef = useRef(false)
+  const prevPathRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const dirInputRef = useRef<HTMLInputElement | null>(null)
   const folderInputRef = useRef<HTMLInputElement | null>(null)
@@ -183,6 +184,10 @@ function BrowsePage() {
 
   // view 또는 하위 폴더에서 복귀 시 스크롤/visibleCount 복원
   useEffect(() => {
+    // path가 변경되지 않았으면 아무것도 하지 않음 (query 갱신 등에서 불필요한 리셋 방지)
+    if (prevPathRef.current === path) return
+    prevPathRef.current = path
+
     const shouldRestore =
       locationState?.restoreScroll && locationState.browseRestore
     if (!shouldRestore) {
