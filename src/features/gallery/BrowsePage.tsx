@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buildCdnUrl } from '../bunny/cdnUrl'
 import { listDirectory, StorageEntry, uploadFile } from '../bunny/storageClient'
 import { useAppSettings } from '../settings/settingsStore'
@@ -89,7 +89,6 @@ function Thumb({
 function BrowsePage() {
   const params = useParams()
   const path = params['*'] ?? ''
-  const location = useLocation()
   const navigate = useNavigate()
   const { cdnBaseUrl, storageZoneName, storageAccessKey } = useAppSettings()
   const [visibleCount, setVisibleCount] = useState(40)
@@ -99,14 +98,10 @@ function BrowsePage() {
   const [folderName, setFolderName] = useState('')
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
-  const userScrolledRef = useRef(false)
-  const prevPathRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const dirInputRef = useRef<HTMLInputElement | null>(null)
   const folderInputRef = useRef<HTMLInputElement | null>(null)
   const uploadMenuRef = useRef<HTMLDivElement | null>(null)
-  const visibleCountRef = useRef(visibleCount)
-  visibleCountRef.current = visibleCount
   const queryClient = useQueryClient()
   const { items, addFiles, clear, uploadAll, retryFailed, cancel } =
     useUploadQueue()
@@ -132,17 +127,6 @@ function BrowsePage() {
   })
 
   const parentPath = getParentPath(path)
-
-  type ScrollState = { path: string; scrollY: number; visibleCount: number }
-  const locationState = location.state as {
-    parentStack?: ScrollState[]
-    restoreScroll?: boolean
-    browseRestore?: { scrollY: number; visibleCount: number }
-  } | null
-  const parentStack = useMemo(
-    () => locationState?.parentStack ?? [],
-    [locationState?.parentStack],
-  )
 
   const entries = query.data ?? []
   const visibleEntries = useMemo(
@@ -182,46 +166,10 @@ function BrowsePage() {
     }
   }
 
-  // view 또는 하위 폴더에서 복귀 시 스크롤/visibleCount 복원
+  // path 변경 시 visibleCount 리셋
   useEffect(() => {
-    // path가 변경되지 않았으면 아무것도 하지 않음 (query 갱신 등에서 불필요한 리셋 방지)
-    if (prevPathRef.current === path) return
-    prevPathRef.current = path
-
-    const shouldRestore =
-      locationState?.restoreScroll && locationState.browseRestore
-    if (!shouldRestore) {
-      // 복원 상태가 없으면 기존 동작: visibleCount 리셋
-      setVisibleCount(40)
-      userScrolledRef.current = false
-      return
-    }
-
-    const { scrollY, visibleCount: savedCount } = locationState.browseRestore!
-    setVisibleCount(Math.max(40, savedCount))
-
-    // DOM이 반영된 후 스크롤 복원
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo(0, scrollY)
-      })
-    })
-
-    // state 1회성 소비: parentStack만 유지하고 나머지 제거
-    window.history.replaceState({ parentStack }, '')
-  }, [location.state, path, locationState, parentStack])
-
-  useEffect(() => {
-    const markScrolled = () => {
-      userScrolledRef.current = true
-    }
-    window.addEventListener('scroll', markScrolled, { passive: true })
-    window.addEventListener('touchmove', markScrolled, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', markScrolled)
-      window.removeEventListener('touchmove', markScrolled)
-    }
-  }, [])
+    setVisibleCount(40)
+  }, [path])
 
   // 업로드 메뉴 외부 클릭 시 닫기
   useEffect(() => {
@@ -290,17 +238,12 @@ function BrowsePage() {
     const sentinel = sentinelRef.current
     if (!sentinel) return
     const observer = new IntersectionObserver(
-      (items) => {
-        const entry = items[0]
-        if (!entry?.isIntersecting) return
-
-        // sentinel이 초기 렌더 직후 화면에 들어오는 케이스(=스크롤 없이 연속 로드) 방지
-        if (!userScrolledRef.current) return
-        userScrolledRef.current = false
-
-        setVisibleCount((prev) =>
-          Math.min(prev + 40, entries.length || prev + 40),
-        )
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setVisibleCount((prev) =>
+            Math.min(prev + 40, entries.length || prev + 40),
+          )
+        }
       },
       { rootMargin: '200px 0px' },
     )
@@ -351,19 +294,6 @@ function BrowsePage() {
             {path ? (
               <Link
                 to={`/browse/${parentPath}`}
-                state={(() => {
-                  const top = parentStack[parentStack.length - 1]
-                  if (!top || top.path !== parentPath) return undefined
-                  const remainingStack = parentStack.slice(0, -1)
-                  return {
-                    restoreScroll: true,
-                    browseRestore: {
-                      scrollY: top.scrollY,
-                      visibleCount: top.visibleCount,
-                    },
-                    parentStack: remainingStack,
-                  }
-                })()}
                 className="inline-flex h-9 items-center rounded-lg border border-border-default bg-surface-elevated px-3 text-sm font-semibold text-content-primary hover:bg-surface-elevated-hover"
               >
                 상위로
@@ -398,16 +328,6 @@ function BrowsePage() {
                 <Link
                   key={entryPath}
                   to={`/browse/${entryPath}`}
-                  state={{
-                    parentStack: [
-                      ...parentStack,
-                      {
-                        path,
-                        scrollY: window.scrollY,
-                        visibleCount: visibleCountRef.current,
-                      },
-                    ],
-                  }}
                   className="group rounded-2xl border border-border-default bg-surface-elevated p-4 transition hover:bg-surface-elevated-hover"
                 >
                   <div className="grid h-10 w-10 place-items-center rounded-xl bg-surface-elevated text-xl">
@@ -427,20 +347,7 @@ function BrowsePage() {
               <button
                 type="button"
                 key={entryPath}
-                onClick={() => {
-                  navigate(`/view/${entryPath}`, {
-                    state: {
-                      parentStack: [
-                        ...parentStack,
-                        {
-                          path,
-                          scrollY: window.scrollY,
-                          visibleCount: visibleCountRef.current,
-                        },
-                      ],
-                    },
-                  })
-                }}
+                onClick={() => navigate(`/view/${entryPath}`)}
                 className="group overflow-hidden rounded-2xl border border-border-default bg-surface-elevated text-left transition hover:bg-surface-elevated-hover"
               >
                 <div className="aspect-square w-full bg-surface-media">
