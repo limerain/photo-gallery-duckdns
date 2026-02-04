@@ -42,6 +42,14 @@ function AppLayout() {
               설정
             </NavLink>
           </nav>
+          <a
+            href="https://buymeacoffee.com/byungseok_kim"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-2 rounded-lg px-3 py-2 text-sm font-semibold text-content-secondary transition hover:bg-surface-elevated"
+          >
+            ☕ 후원
+          </a>
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl px-4 py-6">
